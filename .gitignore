@@ -2,6 +2,7 @@
 *.slo
 *.lo
 *.o
+*.os
 
 # Compiled Dynamic libraries
 *.so
@@ -11,3 +12,6 @@
 *.lai
 *.la
 *.a
+
+# scons db
+.sconsign.dblite
