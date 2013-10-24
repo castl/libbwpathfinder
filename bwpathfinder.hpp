@@ -9,7 +9,16 @@ namespace bwpathfinder {
 
     struct Node;
     typedef boost::shared_ptr<Node> NodePtr;
-    // typedef boost::shared_ptr<const Node> NodeCPtr;
+    struct Link;
+    typedef boost::shared_ptr<Link> LinkPtr;
+    class TrafficPattern;
+    typedef boost::shared_ptr<TrafficPattern> TrafficPatternPtr;
+    class Network;
+    typedef boost::shared_ptr<Network> NetworkPtr;
+    struct Path;
+    typedef boost::shared_ptr<Path> PathPtr;
+    class Pathfinder;
+    typedef boost::shared_ptr<Pathfinder> PathfinderPtr;
 
     struct Link {
         NodePtr a, b;
@@ -25,9 +34,6 @@ namespace bwpathfinder {
         }
     };
 
-    typedef boost::shared_ptr<Link> LinkPtr;
-    // typedef boost::shared_ptr<const Link> LinkCPtr;
-
     struct Node {
         static size_t id_counter;
         size_t id;
@@ -41,8 +47,14 @@ namespace bwpathfinder {
     struct Path {
         NodePtr src;
         NodePtr dst;
+        float requested_bw;
         float delivered_bw;
         std::vector<LinkPtr> path;
+
+        Path() :
+            requested_bw(-1),
+            delivered_bw(-1) {
+        }
 
         bool operator==(Path const& p) const {
             return src == p.src &&
@@ -56,59 +68,52 @@ namespace bwpathfinder {
         }
     };
 
+
     class Network {
         std::set<NodePtr> nodes;
         std::set<LinkPtr> links;
+        std::set<PathPtr> paths;
 
     public:
         Network() { }
 
-        void add_link(NodePtr src, NodePtr dst, float bw) {
+        void addLink(NodePtr src, NodePtr dst, float bw) {
+
+        }
+
+        void addPath(PathPtr path) {
+            this->paths.insert(path);
+        }
+
+        std::vector<PathPtr> getPaths () {
+            return std::vector<PathPtr>(paths.begin(), paths.end());
+        }
+
+        LinkPtr findLink(NodePtr, NodePtr) {
+            return LinkPtr();
+        }
+
+        void computeDeliveredBandwidth() {
 
         }
     };
 
-    typedef boost::shared_ptr<Network> NetworkPtr;
-
-    class TrafficPattern {
-        struct Traffic {
-            NodePtr src;
-            NodePtr dst;
-            float       bandwidth;
-        };
-
-        std::vector<Traffic> all_traffic;
-    public:
-        TrafficPattern() { }
-
-        void add_traffic(NodePtr src, NodePtr dst, float bandwidth) { }
-    };
-
-    typedef boost::shared_ptr<TrafficPattern> TrafficPatternPtr;
-
     class Pathfinder {
-        std::vector<Path> paths;
-
         void iterate0();
         void iterate();
     public:
         Pathfinder() { }
-        Pathfinder(NetworkPtr network, TrafficPatternPtr traffic) {
-            this->init(network, traffic);
+        Pathfinder(NetworkPtr network) {
+            this->init(network);
         }
 
-        void init(NetworkPtr network, TrafficPatternPtr traffic) { }
+        void init(NetworkPtr network) { }
         void solve() { }
         void operator()() {
             solve();
         }
-
-        std::vector<Path> getSolutionPaths() {
-            return paths;
-        }
     };
 
-    typedef boost::shared_ptr<Pathfinder> PathfinderPtr;
 
 }
 

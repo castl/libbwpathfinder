@@ -19,7 +19,7 @@ BOOST_PYTHON_MODULE(bwpathfinder) {
 		.def_readonly("id", &Node::id)
 	;
 	
-	class_<Path>("Path")
+	class_<Path, PathPtr>("Path")
 		.def_readwrite("src", &Path::src)
 		.def_readwrite("dst", &Path::dst)
 		.def_readwrite("delivered_bw", &Path::delivered_bw)
@@ -31,21 +31,20 @@ BOOST_PYTHON_MODULE(bwpathfinder) {
     ;
 
 	class_<Network, NetworkPtr>("Network", init<>())
-		.def("add_link", &Network::add_link)
-	;
-
-	class_<TrafficPattern, TrafficPatternPtr>("TrafficPattern", init<>())
-		.def("add_traffic", &TrafficPattern::add_traffic)
+		.def("addLink", &Network::addLink)
+		.def("addPath", &Network::addPath)
+		.def("getPaths", &Network::getPaths)
+		.def("findLink", &Network::findLink)
+		.def("computeDeliveredBandwidth", &Network::computeDeliveredBandwidth)
 	;
 
 	class_<Pathfinder, PathfinderPtr>("Pathfinder", init<>())
 		.def("init", &Pathfinder::init)
 		.def("solve", &Pathfinder::solve)
-		.def("getSolutionPaths", &Pathfinder::getSolutionPaths)
 	;
 
-	class_<std::vector<Path> >("PathVec")
-        .def(vector_indexing_suite<std::vector<Path>, true >())
+	class_<std::vector<PathPtr> >("PathVec")
+        .def(vector_indexing_suite<std::vector<PathPtr>, true >())
     ;
 }
 
