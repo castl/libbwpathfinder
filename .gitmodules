@@ -1,0 +1,3 @@
+[submodule "libsimfw"]
+	path = libsimfw
+	url = git@github.com:castl/libsimfw.git

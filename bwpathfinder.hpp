@@ -3,7 +3,9 @@
 
 #include <vector>
 #include <set>
+#include <map>
 #include <boost/shared_ptr.hpp>
+#include <boost/enable_shared_from_this.hpp>
 
 namespace bwpathfinder {
 
@@ -23,13 +25,14 @@ namespace bwpathfinder {
     struct Link {
         NodePtr a, b;
         float bandwidth;
-        float used_bandwidth;
+        float latency;
         int   maximum_paths;
 
-        Link(NodePtr a, NodePtr b, float bandwidth, int maximum_paths=-1) : 
+        Link(NodePtr a, NodePtr b, float bandwidth, float latency, int maximum_paths=-1) : 
             a(a),
             b(b),
             bandwidth(bandwidth),
+            latency(latency),
             maximum_paths(-1) {
         }
     };
@@ -37,8 +40,10 @@ namespace bwpathfinder {
     struct Node {
         static size_t id_counter;
         size_t id;
+        float latency;
 
-        Node() { 
+        Node(float latency) : 
+            latency(latency) { 
             this->id = id_counter++;
         }
     };
@@ -69,19 +74,35 @@ namespace bwpathfinder {
     };
 
 
-    class Network {
+    class NetworkSimulation;
+    class Network : public boost::enable_shared_from_this<Network> {
+        friend class NetworkSimulation;
         std::set<NodePtr> nodes;
         std::set<LinkPtr> links;
         std::set<PathPtr> paths;
 
+        std::map<size_t, std::set<LinkPtr> > linkIndex;
+
     public:
-        Network() { }
+        unsigned long flit_size_in_bytes;
 
-        void addLink(NodePtr src, NodePtr dst, float bw) {
+        Network(unsigned long flit_size_in_bytes):
+            flit_size_in_bytes(flit_size_in_bytes) {
+        }
 
+        void addLink(NodePtr src, NodePtr dst, float bw, float latency = -1) {
+            // printf("addLink %p %p %e %e\n", src.get(), dst.get(), bw, latency);
+            nodes.insert(src);
+            nodes.insert(dst);
+
+            LinkPtr link(new Link(src, dst, bw, latency));
+            links.insert(link);
+            linkIndex[src->id].insert(link);
+            linkIndex[dst->id].insert(link);
         }
 
         void addPath(PathPtr path) {
+            printf("addPath: %p %p %f\n", path->src.get(), path->dst.get(), path->requested_bw);
             this->paths.insert(path);
         }
 
@@ -89,13 +110,25 @@ namespace bwpathfinder {
             return std::vector<PathPtr>(paths.begin(), paths.end());
         }
 
-        LinkPtr findLink(NodePtr, NodePtr) {
+        LinkPtr findLink(NodePtr src, NodePtr dst) {
+            // printf("findLink %p %p\n", src.get(), dst.get());
+            auto flinkSet = linkIndex.find(src->id);
+            if (flinkSet == linkIndex.end()) {
+                // printf("No link set\n");
+                return LinkPtr();
+            }
+            auto& linkSet = flinkSet->second;
+            for (auto link: linkSet) {
+                if (dst == NodePtr())
+                    return link;
+                if ((link->a == src && link->b == dst) ||
+                    (link->a == dst && link->b == src))
+                    return link;
+            }
             return LinkPtr();
         }
 
-        void computeDeliveredBandwidth() {
-
-        }
+        void simulateDeliveredBandwidth();
     };
 
     class Pathfinder {
