@@ -96,8 +96,14 @@ namespace bwpathfinder {
                 link(link),
                 bufferedItems(0),
                 roundRobinIndex(0) {
-                this->max_in_flight = link->bandwidth * link->latency / sim->flit_size_in_bytes;
-                assert(this->max_in_flight > 0);
+                float max_iff = link->bandwidth * link->latency / sim->flit_size_in_bytes;
+                this->max_in_flight = round(max_iff);
+                if (this->max_in_flight < 1) {
+                    printf("Config violation: max in flight (%f) < 1!\n", max_iff);
+                    printf("\tbw: %e  latency: %e  flit_size: %lu bytes\n",
+                        link->bandwidth, link->latency, sim->flit_size_in_bytes);
+                    assert(false);
+                }
                 this->latency = link->latency;
                 this->nodeA = sim->getNode(link->a);
                 this->nodeB = sim->getNode(link->b);
@@ -194,9 +200,11 @@ namespace bwpathfinder {
 
         NetworkPtr network;
         size_t flit_size_in_bytes;
-        std::map<PathPtr, InjectionPort*> injectionPorts;
-        std::map<NodePtr, SimulatedNode*> simulatedNodes;
-        std::map<LinkPtr, SimulatedLink*> simulatedLinks;
+        Time longestPeriod;
+        std::map<PathPtr, InjectionPort*, smart_ptr_less_than> injectionPorts;
+        std::map<NodePtr, SimulatedNode*, smart_ptr_less_than> simulatedNodes;
+        std::map<LinkPtr, SimulatedLink*, smart_ptr_less_than> simulatedLinks;
+
     public: 
         NetworkSimulation(NetworkPtr network) {
             this->network = network;
@@ -219,8 +227,11 @@ namespace bwpathfinder {
                 n->notifyLink(link->a, slink);
             }
 
+            Time largestPeriod = 0.0;
             for (auto path: network->paths){
                 Time period = 1.0 / (path->requested_bw / flit_size_in_bytes);
+                if (largestPeriod < period)
+                    largestPeriod = period;
                 LinkPtr vlink = network->findLink(path->src, NodePtr());
                 assert(vlink != LinkPtr());
                 auto flink = simulatedLinks.find(vlink);
@@ -228,6 +239,8 @@ namespace bwpathfinder {
                 SimulatedLink* slink = flink->second;
                 injectionPorts.insert(std::make_pair(path, new InjectionPort(this, period, path, slink)));
             }
+
+            this->longestPeriod = largestPeriod;
         }
 
         ~NetworkSimulation() {
@@ -252,9 +265,8 @@ namespace bwpathfinder {
         }
 
         void simulate() {
-            printf("Running simulation\n");
-            // Simulate 1 ms
-            this->goUntil(0.0001);
+            // Simulate N of the slowest packet injections
+            this->goUntil(longestPeriod.seconds() * 10000.0);
         }
 
         void setDeliveredBandwidths() {

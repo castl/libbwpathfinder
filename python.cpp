@@ -7,18 +7,18 @@ using namespace boost::python;
 namespace bwpathfinder {
 
 BOOST_PYTHON_MODULE(bwpathfinder) {
-	class_<Link, LinkPtr>("Link", no_init)
+	class_<Link, LinkPtr, boost::noncopyable>("Link", no_init)
 		.def_readonly("a", &Link::a)
 		.def_readonly("b", &Link::b)
 		.def_readwrite("bandwidth", &Link::bandwidth)
 		.def_readwrite("maximum_paths", &Link::maximum_paths)
 	;
 
-	class_<Node, NodePtr>("Node", init<float>())
+	class_<Node, boost::noncopyable>("Node", init<float>())
 		.def_readonly("id", &Node::id)
 	;
-	
-	class_<Path, PathPtr>("Path")
+
+	class_<Path, PathPtr, boost::noncopyable>("Path")
 		.def_readwrite("src", &Path::src)
 		.def_readwrite("dst", &Path::dst)
 		.def_readwrite("delivered_bw", &Path::delivered_bw)
@@ -30,7 +30,7 @@ BOOST_PYTHON_MODULE(bwpathfinder) {
         .def(vector_indexing_suite<std::vector<LinkPtr>, true >())
     ;
 
-	class_<Network, NetworkPtr>("Network", init<unsigned long>())
+	class_<Network, NetworkPtr, boost::noncopyable>("Network", init<unsigned long>())
 		.def("addLink", &Network::addLink)
 		.def("addPath", &Network::addPath)
 		.def("getPaths", &Network::getPaths)
@@ -38,7 +38,7 @@ BOOST_PYTHON_MODULE(bwpathfinder) {
 		.def("simulateDeliveredBandwidth", &Network::simulateDeliveredBandwidth)
 	;
 
-	class_<Pathfinder, PathfinderPtr>("Pathfinder", init<>())
+	class_<Pathfinder, PathfinderPtr, boost::noncopyable>("Pathfinder", init<>())
 		.def("init", &Pathfinder::init)
 		.def("solve", &Pathfinder::solve)
 	;

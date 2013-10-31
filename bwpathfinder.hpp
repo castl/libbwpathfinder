@@ -22,6 +22,14 @@ namespace bwpathfinder {
     class Pathfinder;
     typedef boost::shared_ptr<Pathfinder> PathfinderPtr;
 
+    struct smart_ptr_less_than
+    {
+        template< typename T >
+        bool operator()( T p1, T p2 ) const {
+            return p1.get() < p2.get();
+        }
+    }; 
+
     struct Link {
         NodePtr a, b;
         float bandwidth;
@@ -77,11 +85,11 @@ namespace bwpathfinder {
     class NetworkSimulation;
     class Network : public boost::enable_shared_from_this<Network> {
         friend class NetworkSimulation;
-        std::set<NodePtr> nodes;
-        std::set<LinkPtr> links;
-        std::set<PathPtr> paths;
+        std::set<NodePtr, smart_ptr_less_than> nodes;
+        std::set<LinkPtr, smart_ptr_less_than> links;
+        std::set<PathPtr, smart_ptr_less_than> paths;
 
-        std::map<size_t, std::set<LinkPtr> > linkIndex;
+        std::map<NodePtr, std::set<LinkPtr>, smart_ptr_less_than> linkIndex;
 
     public:
         unsigned long flit_size_in_bytes;
@@ -91,18 +99,26 @@ namespace bwpathfinder {
         }
 
         void addLink(NodePtr src, NodePtr dst, float bw, float latency = -1) {
-            // printf("addLink %p %p %e %e\n", src.get(), dst.get(), bw, latency);
+            // printf("[%p] addLink %p %p %e %e\n", this, src.get(), dst.get(), bw, latency);
             nodes.insert(src);
             nodes.insert(dst);
 
             LinkPtr link(new Link(src, dst, bw, latency));
             links.insert(link);
-            linkIndex[src->id].insert(link);
-            linkIndex[dst->id].insert(link);
+            linkIndex[src].insert(link);
+            linkIndex[dst].insert(link);
         }
 
         void addPath(PathPtr path) {
-            printf("addPath: %p %p %f\n", path->src.get(), path->dst.get(), path->requested_bw);
+            // printf("[%p] addPath: %p %p %f\n", this, path->src.get(), path->dst.get(), path->requested_bw);
+            assert(path->dst != NodePtr());
+            assert(path->src != NodePtr());
+            assert(nodes.find(path->dst) != nodes.end());
+            assert(nodes.find(path->src) != nodes.end());
+            for (auto link : path->path) {
+                assert(link != LinkPtr());
+                assert(links.find(link) != links.end());
+            }
             this->paths.insert(path);
         }
 
@@ -112,15 +128,16 @@ namespace bwpathfinder {
 
         LinkPtr findLink(NodePtr src, NodePtr dst) {
             // printf("findLink %p %p\n", src.get(), dst.get());
-            auto flinkSet = linkIndex.find(src->id);
+            auto flinkSet = linkIndex.find(src);
             if (flinkSet == linkIndex.end()) {
-                // printf("No link set\n");
+                printf("No link set\n");
                 return LinkPtr();
             }
             auto& linkSet = flinkSet->second;
             for (auto link: linkSet) {
                 if (dst == NodePtr())
                     return link;
+                // printf("\t%p %p\n", link->a.get(), link->b.get());
                 if ((link->a == src && link->b == dst) ||
                     (link->a == dst && link->b == src))
                     return link;
