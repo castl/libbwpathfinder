@@ -16,5 +16,5 @@
 # scons db
 .sconsign.dblite
 #<AutoIgnore>
-.nfs0000000010042bfe000005aa
+/tests/simple_test
 #<AutoIgnore/>
