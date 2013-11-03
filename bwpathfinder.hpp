@@ -48,12 +48,13 @@ namespace bwpathfinder {
         std::set<PathPtr, smart_ptr_less_than> paths;
         mutable float bwRequested;
         mutable float historyPenalty;
+        mutable float overageExponent;
 
         std::vector<PathPtr> getPaths() {
             return std::vector<PathPtr>(paths.begin(), paths.end());
         }
 
-        float costToUse(PathPtr path) const;
+        float costToUse(float hopCost, float bw) const;
 
         float bwShareW(float bw) const {
             float bwAll = bw + this->bwRequested;
@@ -69,10 +70,11 @@ namespace bwpathfinder {
             return (bw / bwAll) * this->bandwidth;
         }
 
-        void recomputeHistoryPenalty(float increment) {
+        void incrementPenalties(float hIncr, float eIncr) {
             if (solutionPartialCost() > 0.0) {
-                this->historyPenalty += this->bandwidth * increment;
+                this->historyPenalty += this->bandwidth * hIncr;
             }
+            this->overageExponent += eIncr;
         }
 
         float solutionPartialCost() const {
@@ -108,7 +110,8 @@ namespace bwpathfinder {
             delivered_bw(-1) {
         }
 
-        void assign(std::vector<LinkPtr> newPath) {
+        void assign(std::vector<LinkPtr> newPath, float bw) {
+            this->delivered_bw = bw;
             this->path = newPath;
             if (this->src == this->dst)
                 return;
@@ -123,7 +126,7 @@ namespace bwpathfinder {
 
             for (auto link : path) {
                 link->paths.insert(shared_from_this());
-                link->bwRequested += this->requested_bw;
+                link->bwRequested += this->delivered_bw;
             }
         }
 
@@ -132,7 +135,7 @@ namespace bwpathfinder {
                 auto f = link->paths.find(shared_from_this());
                 assert(f != link->paths.end());
                 link->paths.erase(f);
-                link->bwRequested -= this->requested_bw;
+                link->bwRequested -= this->delivered_bw;
             }
             path.clear();
         }
@@ -254,6 +257,7 @@ namespace bwpathfinder {
                 link->paths.clear();
                 link->bwRequested = 0.0;
                 link->historyPenalty = 0.0;
+                link->overageExponent = 0.0;
             }
         }
 

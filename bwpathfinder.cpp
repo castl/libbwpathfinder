@@ -21,19 +21,25 @@ namespace bwpathfinder {
         }
 
         for (PathPtr path : this->paths) {
-        	path->assign(path->path);
+        	path->assign(path->path, path->delivered_bw);
         }
     }
 
-    float Link::costToUse(PathPtr path) const {
-        float cost = path->requested_bw - bwShareW(path->requested_bw);
-        return cost + historyPenalty;
+    float Link::costToUse(float hopCost, float bw) const {
+    	float totBW = bwRequested + bw;
+        float overage = totBW > bandwidth ? totBW - bandwidth : 0;
+        return hopCost + pow(overage, overageExponent);
     }
 
     float Pathfinder::solveConverge(float improvementThreshold, uint64_t maxIter) {
     	std::deque<float> costs;
+    	printf("Pathfinder solveConverge:\n");
+    	printf("\tNodes: %lu\n\tLinks: %lu\n\tPaths: %lu\n\tHopCost:%e\n\tThresh: %e\n",
+    			network->nodes.size(), network->links.size(), network->paths.size(),
+    			hopCost, improvementThreshold);
     	while (iteration < maxIter) {
-    		cost = iterate();
+    		float icost = iterate();
+    		cost = solutionCost();
     		costs.push_back(cost);
     		while (costs.size() > 3) {
     			costs.pop_front();
@@ -51,6 +57,8 @@ namespace bwpathfinder {
     		if (costs.size() >= 3 && diff < improvementThreshold) {
     			break;
     		}
+
+    		printf("\tIteration %lu cost: %e  linkcost: %e\n", iteration, icost, cost);
     	}
 
     	return cost;
@@ -58,7 +66,8 @@ namespace bwpathfinder {
 
     float Pathfinder::solve(float desiredCost, uint64_t maxIter) {
     	while (cost > desiredCost && iteration < maxIter) {
-    		cost = iterate();
+    		iterate();
+    		cost = solutionCost();
     		iteration += 1;
     	}
 
@@ -68,23 +77,26 @@ namespace bwpathfinder {
     struct PartialPath {
         PathPtr defn;
         float cost;
+        float bw;
         NodePtr node;
         std::vector<LinkPtr> path;
 
         PartialPath(PathPtr defn) :
             defn(defn),
             cost(0),
+            bw(defn->requested_bw),
             node(defn->src) {
         }
 
         PartialPath(float hopCost, const PartialPath& orig, LinkPtr next) :
             defn(orig.defn),
             cost(orig.cost),
+            bw(next->bwShareW(orig.bw)),
             node(orig.node),
             path(orig.path) {
             path.push_back(next);
-            float nextCost = next->costToUse(defn) + (hopCost * path.size());
-            cost = std::max(cost, nextCost);
+            float nextCost = next->costToUse(hopCost, bw);
+            cost = cost + nextCost;
 
             if (node == next->a)
                 node = next->b;
@@ -98,9 +110,9 @@ namespace bwpathfinder {
         	const char* fullPart = sinkFound() ? "Full" : "Part";
             printf("%s path  cost: %e node: %p\n", fullPart, cost, node.get());
             for (LinkPtr link : path) {
-            	printf("\t%s -- %s : bw %e, req_bw: %e, cost %e, paths: %lu\n",
+            	printf("\t%s -- %s : bw %e, req_bw: %e, paths: %lu\n",
             		link->a->label.c_str(), link->b->label.c_str(), link->bandwidth,
-            		link->bwRequested, link->costToUse(defn), link->paths.size());
+            		link->bwRequested, link->paths.size());
             }
         }
 
@@ -151,7 +163,7 @@ namespace bwpathfinder {
     			if (bestPath.sinkFound()) {
     				// The current best path has found its destination
     				sinkFound = true;
-    				path->assign(bestPath.path);
+    				path->assign(bestPath.path, bestPath.bw);
     				cost += bestPath.cost;
     				// printf("\t=== Assigned! === \n");
     			} else {
@@ -176,7 +188,7 @@ namespace bwpathfinder {
 
     	// Increment history penalties
     	for (LinkPtr link : this->network->links) {
-    		link->recomputeHistoryPenalty(0.05);
+    		link->incrementPenalties(0.01, 0.1);
     	}
 
     	return cost;
