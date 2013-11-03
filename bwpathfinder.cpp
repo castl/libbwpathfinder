@@ -53,12 +53,16 @@ namespace bwpathfinder {
     			max = std::max(max, c);
     		}
 
+    		printf("\tIteration %lu cost: %e  linkcost: %e\n", iteration, icost, cost);
+
     		float diff = max - min;
     		if (costs.size() >= 3 && diff < improvementThreshold) {
     			break;
     		}
-
-    		printf("\tIteration %lu cost: %e  linkcost: %e\n", iteration, icost, cost);
+    		if (cost < 0.1) {
+    			// < 1 is a very small cost
+    			break;
+    		}
     	}
 
     	return cost;
@@ -141,7 +145,19 @@ namespace bwpathfinder {
     };
 
     float Pathfinder::iterate() {
-    	std::vector<PathPtr> allPaths = this->network->getPaths();
+    	std::vector<PathPtr> allPaths;
+
+    	if (iteration == 0) {
+	    	allPaths = this->network->getPaths();
+	    } else {
+	    	std::set<PathPtr, smart_ptr_less_than> congestedPaths;
+	    	for (LinkPtr link : this->network->links) {
+	    		if (link->bwRequested > link->bandwidth) {
+	    			congestedPaths.insert(link->paths.begin(), link->paths.end());
+	    		}
+	    	}
+	    	allPaths = std::vector<PathPtr>(congestedPaths.begin(), congestedPaths.end());
+	    }
     	std::random_shuffle(allPaths.begin(), allPaths.end());
 
     	float cost = 0.0;
