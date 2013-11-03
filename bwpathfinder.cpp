@@ -13,38 +13,53 @@ namespace bwpathfinder {
         sim.simulate();
         sim.setDeliveredBandwidths();
         sim.flushMessages();
+
+        // Zero all state variables
+        for (LinkPtr link : this->links) {
+            link->paths.clear();
+            link->bwRequested = 0.0;
+        }
+
+        for (PathPtr path : this->paths) {
+        	path->assign(path->path);
+        }
     }
 
     float Link::costToUse(PathPtr path) const {
-        float cost = 0.0;
-        float bwRequested = this->bwRequested + path->requested_bw;
-        if (bwRequested < this->bandwidth)
-            cost = 0.0;
-        else
-            cost = bwRequested - this->bandwidth;
+        float cost = path->requested_bw - bwShareW(path->requested_bw);
         return cost + historyPenalty;
     }
 
-    float Pathfinder::solve(float desiredCost, uint64_t maxIter) {
-    	uint64_t iteration = 0;
-    	float cost = std::numeric_limits<float>::infinity();
-
-    	for (PathPtr path : this->network->paths) {
-    		path->path.clear();
-    	}
-
-    	// Zero all state variables
-    	for (LinkPtr link : this->network->links) {
-    		link->paths.clear();
-    		link->bwRequested = 0.0;
-    		link->historyPenalty = 0.0;
-    	}
-
-    	while (cost > desiredCost && iteration < maxIter) {
-    		iterate();
-    		cost = solutionCost();
+    float Pathfinder::solveConverge(float improvementThreshold, uint64_t maxIter) {
+    	std::deque<float> costs;
+    	while (iteration < maxIter) {
+    		cost = iterate();
+    		costs.push_back(cost);
+    		while (costs.size() > 3) {
+    			costs.pop_front();
+    		}
     		iteration += 1;
-    		// printf("iter %lu: %e\n", iteration, cost);
+
+    		float min = costs.front();
+    		float max = min;
+    		for (float c : costs) {
+    			min = std::min(min, c);
+    			max = std::max(max, c);
+    		}
+
+    		float diff = max - min;
+    		if (costs.size() >= 3 && diff < improvementThreshold) {
+    			break;
+    		}
+    	}
+
+    	return cost;
+    }
+
+    float Pathfinder::solve(float desiredCost, uint64_t maxIter) {
+    	while (cost > desiredCost && iteration < maxIter) {
+    		cost = iterate();
+    		iteration += 1;
     	}
 
     	return cost;
@@ -62,13 +77,14 @@ namespace bwpathfinder {
             node(defn->src) {
         }
 
-        PartialPath(const PartialPath& orig, LinkPtr next) :
+        PartialPath(float hopCost, const PartialPath& orig, LinkPtr next) :
             defn(orig.defn),
             cost(orig.cost),
             node(orig.node),
             path(orig.path) {
             path.push_back(next);
-            cost = std::max(cost,next->costToUse(defn));
+            float nextCost = next->costToUse(defn) + (hopCost * path.size());
+            cost = std::max(cost, nextCost);
 
             if (node == next->a)
                 node = next->b;
@@ -112,10 +128,11 @@ namespace bwpathfinder {
         }
     };
 
-    void Pathfinder::iterate() {
+    float Pathfinder::iterate() {
     	std::vector<PathPtr> allPaths = this->network->getPaths();
     	std::random_shuffle(allPaths.begin(), allPaths.end());
 
+    	float cost = 0.0;
     	for (PathPtr path : allPaths) {
     		path->ripup();
 
@@ -135,6 +152,7 @@ namespace bwpathfinder {
     				// The current best path has found its destination
     				sinkFound = true;
     				path->assign(bestPath.path);
+    				cost += bestPath.cost;
     				// printf("\t=== Assigned! === \n");
     			} else {
     				NodePtr node = bestPath.node;
@@ -145,7 +163,7 @@ namespace bwpathfinder {
     						// link->a->label.c_str(), link->b->label.c_str());
 						// Don't include the link we just used
     					if (link != bestPath.last()) {
-    						PartialPath pp(bestPath, link);
+    						PartialPath pp(this->hopCost, bestPath, link);
     						if (!pp.hasCycle()) {
 	    						q.push(pp);
 	    						// printf("\t\tpushed with cost %e\n", pp.cost);
@@ -157,9 +175,11 @@ namespace bwpathfinder {
     	}
 
     	// Increment history penalties
-    	// for (LinkPtr link : this->network->links) {
-    		// link->recomputeHistoryPenalty(0.05);
-    	// }
+    	for (LinkPtr link : this->network->links) {
+    		link->recomputeHistoryPenalty(0.05);
+    	}
+
+    	return cost;
     }
 
     float Pathfinder::solutionCost() {

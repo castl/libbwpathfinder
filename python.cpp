@@ -12,6 +12,8 @@ BOOST_PYTHON_MODULE(bwpathfinder) {
 		.def_readonly("b", &Link::b)
 		.def_readwrite("bandwidth", &Link::bandwidth)
 		.def_readwrite("maximum_paths", &Link::maximum_paths)
+		.def_readonly("bwRequested", &Link::bwRequested)
+		.def("getPaths", &Link::getPaths)
 	;
 
 	class_<Node, boost::noncopyable>("Node", init<float>())
@@ -24,6 +26,7 @@ BOOST_PYTHON_MODULE(bwpathfinder) {
 		.def_readwrite("delivered_bw", &Path::delivered_bw)
 		.def_readwrite("requested_bw", &Path::requested_bw)
 		.def_readwrite("path", &Path::path)
+		.def("calcCost", &Path::calcCost)
 	;
 
 	class_<std::vector<LinkPtr> >("LinkVec")
@@ -41,6 +44,9 @@ BOOST_PYTHON_MODULE(bwpathfinder) {
 	class_<Pathfinder, PathfinderPtr, boost::noncopyable>("Pathfinder", init<>())
 		.def("init", &Pathfinder::init)
 		.def("solve", &Pathfinder::solve)
+		.def("solveConverge", &Pathfinder::solveConverge)
+		.def_readonly("iteration", &Pathfinder::iteration)
+		.def_readonly("cost", &Pathfinder::cost)
 	;
 
 	class_<std::vector<PathPtr> >("PathVec")

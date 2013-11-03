@@ -49,7 +49,25 @@ namespace bwpathfinder {
         mutable float bwRequested;
         mutable float historyPenalty;
 
+        std::vector<PathPtr> getPaths() {
+            return std::vector<PathPtr>(paths.begin(), paths.end());
+        }
+
         float costToUse(PathPtr path) const;
+
+        float bwShareW(float bw) const {
+            float bwAll = bw + this->bwRequested;
+            if (bwAll < this->bandwidth)
+                return bw;
+            return (bw / bwAll) * this->bandwidth;
+        }
+
+        float bwShare(float bw) const {
+            float bwAll = this->bwRequested;
+            if (bwAll < this->bandwidth)
+                return bw;
+            return (bw / bwAll) * this->bandwidth;
+        }
 
         void recomputeHistoryPenalty(float increment) {
             if (solutionPartialCost() > 0.0) {
@@ -94,7 +112,7 @@ namespace bwpathfinder {
             this->path = newPath;
             if (this->src == this->dst)
                 return;
-            
+
             assert(newPath.size() > 0);
 
             // Make sure the path begins and ends at out src, dst
@@ -111,10 +129,21 @@ namespace bwpathfinder {
 
         void ripup() {
             for (auto link : path) {
-                link->paths.erase(shared_from_this());
+                auto f = link->paths.find(shared_from_this());
+                assert(f != link->paths.end());
+                link->paths.erase(f);
                 link->bwRequested -= this->requested_bw;
             }
             path.clear();
+        }
+
+        float calcCost(float hopCost) {
+            float cost = 0.0;
+            for (auto link : path) {
+                cost = std::max(cost, this->requested_bw - link->bwShare(this->requested_bw));
+            }
+            cost += path.size() * hopCost;
+            return cost;
         }
 
         bool operator==(Path const& p) const {
@@ -201,18 +230,35 @@ namespace bwpathfinder {
     class Pathfinder {
         NetworkPtr network;
 
-        void iterate();
+        float iterate();
         float solutionCost();
+
     public:
+        float hopCost;
+        uint64_t iteration;
+        float cost;
         Pathfinder() { }
-        Pathfinder(NetworkPtr network) {
-            this->init(network);
+
+        void init(NetworkPtr network, float hopCost) {
+            this->network = network;
+            this->hopCost = hopCost;
+            this->iteration = 0;
+            cost = std::numeric_limits<float>::infinity();
+
+            for (PathPtr path : this->network->paths) {
+                path->path.clear();
+            }
+
+            // Zero all state variables
+            for (LinkPtr link : this->network->links) {
+                link->paths.clear();
+                link->bwRequested = 0.0;
+                link->historyPenalty = 0.0;
+            }
         }
 
-        void init(NetworkPtr network) {
-            this->network = network;
-        }
         float solve(float desiredCost, uint64_t maxIterations);
+        float solveConverge(float improvementThreshold, uint64_t maxIterations);
     };
 
 

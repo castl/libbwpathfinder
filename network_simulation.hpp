@@ -203,6 +203,8 @@ namespace bwpathfinder {
         NetworkPtr network;
         size_t flit_size_in_bytes;
         Time longestPeriod;
+        Time slowestClock;
+        size_t longestPath;
         std::map<PathPtr, InjectionPort*, smart_ptr_less_than> injectionPorts;
         std::map<NodePtr, SimulatedNode*, smart_ptr_less_than> simulatedNodes;
         std::map<LinkPtr, SimulatedLink*, smart_ptr_less_than> simulatedLinks;
@@ -211,11 +213,17 @@ namespace bwpathfinder {
         NetworkSimulation(NetworkPtr network) {
             this->network = network;
             this->flit_size_in_bytes = network->flit_size_in_bytes;
+
+            slowestClock = 0.0;
             for(auto node : network->nodes) {
                 simulatedNodes.insert(std::make_pair(node, new SimulatedNode(this, node)));
+                if (slowestClock < node->latency)
+                    slowestClock = node->latency;
             }
 
             for(auto link: network->links) {
+                if (slowestClock < link->latency)
+                    slowestClock = link->latency;
                 simulatedLinks.insert(std::make_pair(link, new SimulatedLink(this, link)));
                 SimulatedLink* slink = simulatedLinks.find(link)->second;
                 SimulatedNode* n;
@@ -230,10 +238,13 @@ namespace bwpathfinder {
             }
 
             Time largestPeriod = 0.0;
+            this->longestPath = 0;
             for (auto path: network->paths){
                 Time period = 1.0 / (path->requested_bw / flit_size_in_bytes);
                 if (largestPeriod < period)
                     largestPeriod = period;
+                if (path->path.size() > longestPath)
+                    longestPath = path->path.size();
                 LinkPtr vlink = network->findLink(path->src, NodePtr());
                 assert(vlink != LinkPtr());
                 auto flink = simulatedLinks.find(vlink);
@@ -268,7 +279,8 @@ namespace bwpathfinder {
 
         void simulate() {
             // Simulate N of the slowest packet injections
-            this->goUntil(longestPeriod.seconds() * 10000.0);
+            this->goUntil(longestPeriod.seconds() * 500.0 +
+                          10 * longestPath * slowestClock.seconds());
         }
 
         void setDeliveredBandwidths() {
