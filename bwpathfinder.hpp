@@ -43,12 +43,34 @@ namespace bwpathfinder {
             latency(latency),
             maximum_paths(-1) {
         }
+
+        // Used for pathfinder algo
+        std::set<PathPtr, smart_ptr_less_than> paths;
+        mutable float bwRequested;
+        mutable float historyPenalty;
+
+        float costToUse(PathPtr path) const;
+
+        void recomputeHistoryPenalty(float increment) {
+            if (solutionPartialCost() > 0.0) {
+                this->historyPenalty += this->bandwidth * increment;
+            }
+        }
+
+        float solutionPartialCost() const {
+            // printf("spc: %e %e %e %lu\n", this->bandwidth,
+                // this->bwRequested, this->historyPenalty, this->paths.size());
+            if (this->bwRequested < this->bandwidth)
+                return 0.0;
+            return this->bwRequested - this->bandwidth;
+        }
     };
 
     struct Node {
         static size_t id_counter;
         size_t id;
         float latency;
+        std::string label;
 
         Node(float latency) : 
             latency(latency) { 
@@ -56,8 +78,7 @@ namespace bwpathfinder {
         }
     };
 
-
-    struct Path {
+    struct Path : public boost::enable_shared_from_this<Path>{
         NodePtr src;
         NodePtr dst;
         float requested_bw;
@@ -67,6 +88,33 @@ namespace bwpathfinder {
         Path() :
             requested_bw(-1),
             delivered_bw(-1) {
+        }
+
+        void assign(std::vector<LinkPtr> newPath) {
+            this->path = newPath;
+            if (this->src == this->dst)
+                return;
+            
+            assert(newPath.size() > 0);
+
+            // Make sure the path begins and ends at out src, dst
+            auto fst = this->path.front();
+            assert(fst->a == this->src || fst->b == this->src);
+            auto lst = this->path.back();
+            assert(lst->a == this->dst || lst->b == this->dst);
+
+            for (auto link : path) {
+                link->paths.insert(shared_from_this());
+                link->bwRequested += this->requested_bw;
+            }
+        }
+
+        void ripup() {
+            for (auto link : path) {
+                link->paths.erase(shared_from_this());
+                link->bwRequested -= this->requested_bw;
+            }
+            path.clear();
         }
 
         bool operator==(Path const& p) const {
@@ -85,11 +133,12 @@ namespace bwpathfinder {
     class NetworkSimulation;
     class Network : public boost::enable_shared_from_this<Network> {
         friend class NetworkSimulation;
+        friend class Pathfinder;
         std::set<NodePtr, smart_ptr_less_than> nodes;
         std::set<LinkPtr, smart_ptr_less_than> links;
         std::set<PathPtr, smart_ptr_less_than> paths;
 
-        std::map<NodePtr, std::set<LinkPtr>, smart_ptr_less_than> linkIndex;
+        std::map<NodePtr, std::set<LinkPtr, smart_ptr_less_than>, smart_ptr_less_than> linkIndex;
 
     public:
         unsigned long flit_size_in_bytes;
@@ -99,7 +148,8 @@ namespace bwpathfinder {
         }
 
         void addLink(NodePtr src, NodePtr dst, float bw, float latency = -1) {
-            // printf("[%p] addLink %p %p %e %e\n", this, src.get(), dst.get(), bw, latency);
+            // printf("[%p] addLink %s %s %e %e\n", this, src->label.c_str(),
+                // dst->label.c_str(), bw, latency);
             nodes.insert(src);
             nodes.insert(dst);
 
@@ -149,19 +199,20 @@ namespace bwpathfinder {
     };
 
     class Pathfinder {
-        void iterate0();
+        NetworkPtr network;
+
         void iterate();
+        float solutionCost();
     public:
         Pathfinder() { }
         Pathfinder(NetworkPtr network) {
             this->init(network);
         }
 
-        void init(NetworkPtr network) { }
-        void solve() { }
-        void operator()() {
-            solve();
+        void init(NetworkPtr network) {
+            this->network = network;
         }
+        float solve(float desiredCost, uint64_t maxIterations);
     };
 
 

@@ -1,3 +1,6 @@
+#!/usr/bin/env python
+# -*- coding: utf-8 -*-
+
 LibPaths = ["."]
 
 env = Environment(CPPPATH=['-I/usr/include/python2.7', "."],

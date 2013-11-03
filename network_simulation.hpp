@@ -24,6 +24,8 @@ namespace bwpathfinder {
             }
 
             NodePtr nextNode() {
+                if (arrived())
+                    return owner->dst;
                 assert(hops < owner->path.size());
                 LinkPtr currLink = owner->path[hops];
                 // printf("nextNode src %p dst %p curr (%p %p)\n",
