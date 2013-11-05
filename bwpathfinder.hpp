@@ -205,7 +205,7 @@ namespace bwpathfinder {
             for (auto link : links) {
                 link->paths.clear();
             }
-            
+
             linkIndex.clear();
             links.clear();
             nodes.clear();
@@ -268,6 +268,7 @@ namespace bwpathfinder {
 
         float iterate();
         float solutionCost();
+        float deliveredBw();
 
     public:
         float hopCost;
