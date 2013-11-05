@@ -6,7 +6,14 @@ using namespace boost::python;
 
 namespace bwpathfinder {
 
+    void check_pyerror() {
+        if(PyErr_CheckSignals() == -1) {
+            exit(1);
+        } 
+    }
+
 BOOST_PYTHON_MODULE(bwpathfinder) {
+
 	class_<Link, LinkPtr, boost::noncopyable>("Link", no_init)
 		.def_readonly("a", &Link::a)
 		.def_readonly("b", &Link::b)
@@ -47,6 +54,8 @@ BOOST_PYTHON_MODULE(bwpathfinder) {
 		.def("solveConverge", &Pathfinder::solveConverge)
 		.def_readonly("iteration", &Pathfinder::iteration)
 		.def_readonly("cost", &Pathfinder::cost)
+		.def_readwrite("overageCostIncrement", &Pathfinder::overageCostIncrement)
+		.def_readwrite("historyCostIncrement", &Pathfinder::historyCostIncrement)
 	;
 
 	class_<std::vector<PathPtr> >("PathVec")

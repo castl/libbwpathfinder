@@ -9,6 +9,8 @@
 
 namespace bwpathfinder {
 
+    void check_pyerror();
+
     struct Node;
     typedef boost::shared_ptr<Node> NodePtr;
     struct Link;
@@ -72,7 +74,7 @@ namespace bwpathfinder {
 
         void incrementPenalties(float hIncr, float eIncr) {
             if (solutionPartialCost() > 0.0) {
-                this->historyPenalty += this->bandwidth * hIncr;
+                this->historyPenalty += hIncr;
             }
             this->overageExponent += eIncr;
         }
@@ -272,6 +274,8 @@ namespace bwpathfinder {
 
     public:
         float hopCost;
+        float overageCostIncrement;
+        float historyCostIncrement;
         uint64_t iteration;
         float cost;
         Pathfinder() { }
@@ -279,6 +283,8 @@ namespace bwpathfinder {
         void init(NetworkPtr network, float hopCost) {
             this->network = network;
             this->hopCost = hopCost;
+            this->overageCostIncrement = 0.1;
+            this->historyCostIncrement = 0.1;
             this->iteration = 0;
             cost = std::numeric_limits<float>::infinity();
 

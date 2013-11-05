@@ -165,6 +165,8 @@ namespace bwpathfinder {
 
     	float cost = 0.0;
     	for (PathPtr path : allPaths) {
+            check_pyerror();
+
     		path->ripup();
 
     		// Find a new path
@@ -208,7 +210,7 @@ namespace bwpathfinder {
 
     	// Increment history penalties
     	for (LinkPtr link : this->network->links) {
-    		link->incrementPenalties(0.01, 0.05);
+    		link->incrementPenalties(this->historyCostIncrement, this->overageCostIncrement);
     	}
 
     	return cost;
