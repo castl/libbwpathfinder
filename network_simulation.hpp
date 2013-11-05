@@ -279,7 +279,7 @@ namespace bwpathfinder {
 
         void simulate() {
             // Simulate N of the slowest packet injections
-            this->goUntil(longestPeriod.seconds() * 500.0 +
+            this->goUntil(longestPeriod.seconds() * 10.0 +
                           10 * longestPath * slowestClock.seconds());
         }
 
