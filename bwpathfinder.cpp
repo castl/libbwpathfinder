@@ -2,6 +2,7 @@
 #include "network_simulation.hpp"
 
 #include <queue>
+#include <unordered_set>
 #include <cstdio>
 
 namespace bwpathfinder {
@@ -28,7 +29,7 @@ namespace bwpathfinder {
     float Link::costToUse(float hopCost, float bw) const {
     	float totBW = bwRequested + bw;
         float overage = totBW > bandwidth ? totBW - bandwidth : 0;
-        return hopCost + pow(overage, overageExponent);
+        return hopCost + (overage * overageExponent * historyPenalty);
     }
 
     float Pathfinder::solveConverge(float improvementThreshold, uint64_t maxIter) {
@@ -79,68 +80,64 @@ namespace bwpathfinder {
     }
 
     struct PartialPath {
-        PathPtr defn;
+        Path* defn;
         float cost;
         float bw;
-        NodePtr node;
-        std::vector<LinkPtr> path;
+        Node* node;
+        std::vector<Link*> path;
 
-        PartialPath(PathPtr defn) :
-            defn(defn),
+        PartialPath(const PathPtr& defn) :
+            defn(defn.get()),
             cost(0),
             bw(defn->requested_bw),
-            node(defn->src) {
+            node(defn->src.get()) {
         }
 
-        PartialPath(float hopCost, const PartialPath& orig, LinkPtr next) :
+        PartialPath(float hopCost, const PartialPath& orig, Link* next) :
             defn(orig.defn),
             cost(orig.cost),
             bw(next->bwShareW(orig.bw)),
-            node(orig.node),
+            node(orig.nextOverLink(next)),
             path(orig.path) {
             path.push_back(next);
             float nextCost = next->costToUse(hopCost, bw);
             cost = cost + nextCost;
+        }
 
-            if (node == next->a)
-                node = next->b;
-            else if (node == next->b)
-                node = next->a;
+        Node* nextOverLink(Link* next) const {
+            if (node == next->a.get())
+                return next->b.get();
+            else if (node == next->b.get())
+                return next->a.get();
             else
                 assert(false && "Link being added doesn't connect");
         }
 
         void print() {
         	const char* fullPart = sinkFound() ? "Full" : "Part";
-            printf("%s path  cost: %e node: %p\n", fullPart, cost, node.get());
-            for (LinkPtr link : path) {
+            printf("%s path  cost: %e node: %p\n", fullPart, cost, node);
+            for (Link* link : path) {
             	printf("\t%s -- %s : bw %e, req_bw: %e, paths: %lu\n",
             		link->a->label.c_str(), link->b->label.c_str(), link->bandwidth,
             		link->bwRequested, link->paths.size());
             }
         }
 
-        LinkPtr last() {
+        Link* last() {
             if (path.size() == 0)
-                return LinkPtr();
+                return NULL;
             return path.back();
         }
 
         bool sinkFound() {
             if (path.size() == 0)
                 return defn->src == defn->dst;
-            LinkPtr lst = path.back();
+            Link* lst = path.back();
             return lst->a == defn->dst || lst->b == defn->dst;
         }
 
         bool operator<(const PartialPath& other) const {
             return this->cost > other.cost;
-        }
-
-        bool hasCycle() const {
-        	std::set<LinkPtr, smart_ptr_less_than> pathSet(path.begin(), path.end());
-        	assert(pathSet.size() <= path.size());
-        	return pathSet.size() < path.size();
         }
     };
 
@@ -165,6 +162,7 @@ namespace bwpathfinder {
     		path->ripup();
 
     		// Find a new path
+            std::unordered_set<Node*> nodesSeen;
     		std::priority_queue<PartialPath> q;
     		q.push(PartialPath(path));
 
@@ -182,20 +180,20 @@ namespace bwpathfinder {
     				path->assign(bestPath.path, bestPath.bw);
     				cost += bestPath.cost;
     				// printf("\t=== Assigned! === \n");
-    			} else {
-    				NodePtr node = bestPath.node;
+    			} else if (nodesSeen.find(bestPath.node) == nodesSeen.end()) {
+                    nodesSeen.insert(bestPath.node);
     				// printf("\tAt node: %s\n", node->label.c_str());
-    				auto& links = this->network->linkIndex[node];
-    				for (LinkPtr link : links) {
+    				auto& links = this->network->linkIndex[bestPath.node];
+    				for (Link* link : links) {
     					// printf("\tConsidering: %s -- %s\n",
     						// link->a->label.c_str(), link->b->label.c_str());
 						// Don't include the link we just used
     					if (link != bestPath.last()) {
-    						PartialPath pp(this->hopCost, bestPath, link);
-    						if (!pp.hasCycle()) {
-	    						q.push(pp);
-	    						// printf("\t\tpushed with cost %e\n", pp.cost);
-	    					}
+                            Node* next = bestPath.nextOverLink(link);
+                            if (nodesSeen.find(next) == nodesSeen.end()) {
+                                PartialPath pp(this->hopCost, bestPath, link);
+                                q.push(pp);
+                            }
     					}
     				}
     			}
@@ -204,7 +202,7 @@ namespace bwpathfinder {
 
     	// Increment history penalties
     	for (LinkPtr link : this->network->links) {
-    		link->incrementPenalties(0.01, 0.1);
+    		link->incrementPenalties(0.01, 0.05);
     	}
 
     	return cost;

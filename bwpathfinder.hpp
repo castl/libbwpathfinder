@@ -30,7 +30,7 @@ namespace bwpathfinder {
         }
     }; 
 
-    struct Link {
+    struct Link : public boost::enable_shared_from_this<Link> {
         NodePtr a, b;
         float bandwidth;
         float latency;
@@ -112,22 +112,44 @@ namespace bwpathfinder {
 
         void assign(std::vector<LinkPtr> newPath, float bw) {
             this->delivered_bw = bw;
-            this->path = newPath;
+            this->path.clear();
             if (this->src == this->dst)
                 return;
 
             assert(newPath.size() > 0);
+
+            for (auto link : newPath) {
+                link->paths.insert(shared_from_this());
+                link->bwRequested += this->delivered_bw;
+                this->path.push_back(link);
+            }
 
             // Make sure the path begins and ends at out src, dst
             auto fst = this->path.front();
             assert(fst->a == this->src || fst->b == this->src);
             auto lst = this->path.back();
             assert(lst->a == this->dst || lst->b == this->dst);
+        }
 
-            for (auto link : path) {
+        void assign(std::vector<Link*> newPath, float bw) {
+            this->delivered_bw = bw;
+            this->path.clear();
+            if (this->src == this->dst)
+                return;
+
+            assert(newPath.size() > 0);
+
+            for (auto link : newPath) {
                 link->paths.insert(shared_from_this());
                 link->bwRequested += this->delivered_bw;
+                this->path.push_back(link->shared_from_this());
             }
+
+            // Make sure the path begins and ends at out src, dst
+            auto fst = this->path.front();
+            assert(fst->a == this->src || fst->b == this->src);
+            auto lst = this->path.back();
+            assert(lst->a == this->dst || lst->b == this->dst);
         }
 
         void ripup() {
@@ -170,13 +192,24 @@ namespace bwpathfinder {
         std::set<LinkPtr, smart_ptr_less_than> links;
         std::set<PathPtr, smart_ptr_less_than> paths;
 
-        std::map<NodePtr, std::set<LinkPtr, smart_ptr_less_than>, smart_ptr_less_than> linkIndex;
+        std::map<Node*, std::set<Link*> > linkIndex;
 
     public:
         unsigned long flit_size_in_bytes;
 
         Network(unsigned long flit_size_in_bytes):
             flit_size_in_bytes(flit_size_in_bytes) {
+        }
+
+        ~Network() {
+            for (auto link : links) {
+                link->paths.clear();
+            }
+            
+            linkIndex.clear();
+            links.clear();
+            nodes.clear();
+            paths.clear();
         }
 
         void addLink(NodePtr src, NodePtr dst, float bw, float latency = -1) {
@@ -187,8 +220,8 @@ namespace bwpathfinder {
 
             LinkPtr link(new Link(src, dst, bw, latency));
             links.insert(link);
-            linkIndex[src].insert(link);
-            linkIndex[dst].insert(link);
+            linkIndex[src.get()].insert(link.get());
+            linkIndex[dst.get()].insert(link.get());
         }
 
         void addPath(PathPtr path) {
@@ -210,7 +243,7 @@ namespace bwpathfinder {
 
         LinkPtr findLink(NodePtr src, NodePtr dst) {
             // printf("findLink %p %p\n", src.get(), dst.get());
-            auto flinkSet = linkIndex.find(src);
+            auto flinkSet = linkIndex.find(src.get());
             if (flinkSet == linkIndex.end()) {
                 printf("No link set\n");
                 return LinkPtr();
@@ -218,11 +251,11 @@ namespace bwpathfinder {
             auto& linkSet = flinkSet->second;
             for (auto link: linkSet) {
                 if (dst == NodePtr())
-                    return link;
+                    return link->shared_from_this();
                 // printf("\t%p %p\n", link->a.get(), link->b.get());
                 if ((link->a == src && link->b == dst) ||
                     (link->a == dst && link->b == src))
-                    return link;
+                    return link->shared_from_this();
             }
             return LinkPtr();
         }
