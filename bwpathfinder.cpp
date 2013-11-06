@@ -32,47 +32,75 @@ namespace bwpathfinder {
         return hopCost + (overage * overageExponent * historyPenalty);
     }
 
-    float Pathfinder::solveConverge(float improvementThreshold, uint64_t maxIter) {
-    	std::deque<float> costs;
+    float Pathfinder::solveToBwPcnt(float desiredPcnt, uint64_t maxIter) {
+        desiredPcnt = std::min((float)100.0, desiredPcnt);
         float requested_bw = 0.0;
         for (PathPtr path: this->network->paths) {
             requested_bw += path->requested_bw;
         }
+
     	printf("Pathfinder solveConverge:\n");
-    	printf("\tNodes: %lu\n\tLinks: %lu\n\tPaths: %lu\n\tHopCost:%e\n\tThresh: %e\n\tBandwidth: %e\n",
+    	printf("\tNodes: %lu\n\tLinks: %lu\n\tPaths: %lu\n\tHopCost:%e\n\tGoal: %f%%\n\tBandwidth: %e\n",
     			network->nodes.size(), network->links.size(), network->paths.size(),
-    			hopCost, improvementThreshold, requested_bw);
+    			hopCost, desiredPcnt, requested_bw);
     	while (iteration < maxIter) {
     		float icost = iterate();
     		cost = solutionCost();
             float bw = deliveredBw();
-    		costs.push_back(cost);
-    		while (costs.size() > 3) {
-    			costs.pop_front();
-    		}
+            float pcnt = 100 * bw / requested_bw;
     		iteration += 1;
-
-    		float min = costs.front();
-    		float max = min;
-    		for (float c : costs) {
-    			min = std::min(min, c);
-    			max = std::max(max, c);
-    		}
 
     		printf("\tIteration %lu cost: %e  linkcost: %e  bw: %e (%f%%)\n",
                     iteration, icost, cost, bw, 100.0 * bw / requested_bw);
 
-    		float diff = max - min;
-    		if (costs.size() >= 3 && diff < improvementThreshold) {
-    			break;
-    		}
-    		if (cost < 0.1) {
-    			// < 1 is a very small cost
-    			break;
-    		}
+            if (pcnt >= desiredPcnt)
+                break;
     	}
 
     	return cost;
+    }
+
+    float Pathfinder::solveConverge(float improvementThreshold, uint64_t maxIter) {
+        std::deque<float> costs;
+        float requested_bw = 0.0;
+        for (PathPtr path: this->network->paths) {
+            requested_bw += path->requested_bw;
+        }
+        printf("Pathfinder solveConverge:\n");
+        printf("\tNodes: %lu\n\tLinks: %lu\n\tPaths: %lu\n\tHopCost:%e\n\tThresh: %e\n\tBandwidth: %e\n",
+                network->nodes.size(), network->links.size(), network->paths.size(),
+                hopCost, improvementThreshold, requested_bw);
+        while (iteration < maxIter) {
+            float icost = iterate();
+            cost = solutionCost();
+            float bw = deliveredBw();
+            costs.push_back(cost);
+            while (costs.size() > 3) {
+                costs.pop_front();
+            }
+            iteration += 1;
+
+            float min = costs.front();
+            float max = min;
+            for (float c : costs) {
+                min = std::min(min, c);
+                max = std::max(max, c);
+            }
+
+            printf("\tIteration %lu cost: %e  linkcost: %e  bw: %e (%f%%)\n",
+                    iteration, icost, cost, bw, 100.0 * bw / requested_bw);
+
+            float diff = max - min;
+            if (costs.size() >= 3 && diff < improvementThreshold) {
+                break;
+            }
+            if (cost < 0.1) {
+                // < 1 is a very small cost
+                break;
+            }
+        }
+
+        return cost;
     }
 
     float Pathfinder::solve(float desiredCost, uint64_t maxIter) {

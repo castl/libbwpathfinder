@@ -303,6 +303,7 @@ namespace bwpathfinder {
 
         float solve(float desiredCost, uint64_t maxIterations);
         float solveConverge(float improvementThreshold, uint64_t maxIterations);
+        float solveToBwPcnt(float desiredPcnt, uint64_t maxIterations);
     };
 
 

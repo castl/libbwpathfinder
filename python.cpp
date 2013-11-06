@@ -52,6 +52,7 @@ BOOST_PYTHON_MODULE(bwpathfinder) {
 		.def("init", &Pathfinder::init)
 		.def("solve", &Pathfinder::solve)
 		.def("solveConverge", &Pathfinder::solveConverge)
+		.def("solveToBwPcnt", &Pathfinder::solveToBwPcnt)
 		.def_readonly("iteration", &Pathfinder::iteration)
 		.def_readonly("cost", &Pathfinder::cost)
 		.def_readwrite("overageCostIncrement", &Pathfinder::overageCostIncrement)
