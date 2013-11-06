@@ -75,7 +75,7 @@ namespace bwpathfinder {
                     delete f;
                 } else {
                     NodePtr next = f->nextNode();
-                    outPorts[next->id]->inject(time, f, from);
+                    outPorts[next->id]->inject(time, f);
                 }
             }
         };
@@ -87,7 +87,7 @@ namespace bwpathfinder {
             Time latency;
             size_t bufferedItems;
             size_t roundRobinIndex;
-            std::map<SimulatedLink*, std::deque<Flit*> > buffers;
+            std::map<Node*, std::deque<Flit*> > buffers;
             std::set<Flit*> inFlight;
             SimulatedNode* nodeA;
             SimulatedNode* nodeB;
@@ -125,9 +125,9 @@ namespace bwpathfinder {
                 }
             }
 
-            void inject(Time time, Flit* f, SimulatedLink* last) {
+            void inject(Time time, Flit* f) {
                 if (inFlight.size() >= max_in_flight) {
-                    buffers[last].push_back(f);
+                    buffers[f->owner->src.get()].push_back(f);
                     bufferedItems += 1;
                 } else {
                     inFlight.insert(f);
@@ -194,7 +194,7 @@ namespace bwpathfinder {
 
         protected:
             virtual bool ding(uint64_t i) {
-                link->inject(simulation->now(), new Flit(path), NULL);
+                link->inject(simulation->now(), new Flit(path));
                 // printf("Injecting flit %lf %lu\n", simulation->now().seconds(), i);
                 return true;
             }
@@ -279,7 +279,7 @@ namespace bwpathfinder {
 
         void simulate() {
             // Simulate N of the slowest packet injections
-            this->goUntil(longestPeriod.seconds() * 10.0 +
+            this->goUntil(longestPeriod.seconds() * 100.0 +
                           10 * longestPath * slowestClock.seconds());
         }
 

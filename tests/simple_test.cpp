@@ -65,7 +65,7 @@ int main(void) {
 
     Pathfinder pf;
     pf.init(net, 1.0e7);
-    float cost = pf.solve(0.0, 2);
+    float cost = pf.solveToBwPcnt(99.0, 5);
     printf("PF cost: %e\n", cost);
 
     net->simulateDeliveredBandwidth();

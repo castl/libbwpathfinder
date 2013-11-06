@@ -63,6 +63,7 @@ namespace bwpathfinder {
             if (bwAll < this->bandwidth)
                 return bw;
             return (bw / bwAll) * this->bandwidth;
+            // return std::min(bw, this->bandwidth / (paths.size() + 1));
         }
 
         float bwShare(float bw) const {
@@ -70,11 +71,12 @@ namespace bwpathfinder {
             if (bwAll < this->bandwidth)
                 return bw;
             return (bw / bwAll) * this->bandwidth;
+            // return std::min(bw, this->bandwidth / paths.size());
         }
 
         void incrementPenalties(float hIncr, float eIncr) {
             if (solutionPartialCost() > 0.0) {
-                this->historyPenalty += hIncr;
+                this->historyPenalty += hIncr * solutionPartialCost() / this->bandwidth;
             }
             this->overageExponent += eIncr;
         }

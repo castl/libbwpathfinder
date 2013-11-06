@@ -31,9 +31,10 @@ namespace bwpathfinder {
     }
 
     float Link::costToUse(float hopCost, float bw) const {
-    	float totBW = bwRequested + bw;
-        float overage = totBW > bandwidth ? totBW - bandwidth : 0;
-        return hopCost + (overage * overageExponent * historyPenalty);
+    	// float totBW = bwRequested + bw;
+        // float overage = totBW > bandwidth ? totBW - bandwidth : 0;
+        float overage = std::max((float)0.0, bw - this->bwShareW(bw));
+        return hopCost + (overage * overageExponent) + historyPenalty;
     }
 
     float Pathfinder::solveToBwPcnt(float desiredPcnt, uint64_t maxIter) {
@@ -43,7 +44,7 @@ namespace bwpathfinder {
             requested_bw += path->requested_bw;
         }
 
-    	printf("Pathfinder solveConverge:\n");
+    	printf("Pathfinder solveToBwPcnt:\n");
     	printf("\tNodes: %lu\n\tLinks: %lu\n\tPaths: %lu\n\tHopCost:%e\n\tGoal: %f%%\n\tBandwidth: %e\n",
     			network->nodes.size(), network->links.size(), network->paths.size(),
     			hopCost, desiredPcnt, requested_bw);
