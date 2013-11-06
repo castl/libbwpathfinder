@@ -6,6 +6,7 @@
 #include <cstdio>
 
 namespace bwpathfinder {
+    __attribute__((weak)) void check_pyerror() { }
 
     size_t Node::id_counter = 0;
 
