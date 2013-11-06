@@ -11,6 +11,10 @@ namespace bwpathfinder {
 
     void Network::simulateDeliveredBandwidth() {
         NetworkSimulation sim(shared_from_this());
+        simfw::Timer<Time> checkup(&sim, 1e-8, [] (uint64_t i) {
+            check_pyerror();
+            return true;
+        });
         sim.simulate();
         sim.setDeliveredBandwidths();
         sim.flushMessages();
