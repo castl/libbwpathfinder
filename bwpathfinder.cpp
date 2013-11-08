@@ -45,10 +45,10 @@ namespace bwpathfinder {
             requested_bw += path->requested_bw;
         }
 
-    	printf("Pathfinder solveToBwPcnt:\n");
-    	printf("\tNodes: %lu\n\tLinks: %lu\n\tPaths: %lu\n\tHopCost:%e\n\tGoal: %f%%\n\tBandwidth: %e\n",
-    			network->nodes.size(), network->links.size(), network->paths.size(),
-    			hopCost, desiredPcnt, requested_bw);
+    	// printf("Pathfinder solveToBwPcnt:\n");
+    	// printf("\tNodes: %lu\n\tLinks: %lu\n\tPaths: %lu\n\tHopCost:%e\n\tGoal: %f%%\n\tBandwidth: %e\n",
+    	// 		network->nodes.size(), network->links.size(), network->paths.size(),
+    	// 		hopCost, desiredPcnt, requested_bw);
     	while (iteration < maxIter) {
     		float icost = iterate();
     		cost = solutionCost();
@@ -56,8 +56,8 @@ namespace bwpathfinder {
             float pcnt = 100 * bw / requested_bw;
     		iteration += 1;
 
-    		printf("\tIteration %lu cost: %e  linkcost: %e  bw: %e (%f%%)\n",
-                    iteration, icost, cost, bw, 100.0 * bw / requested_bw);
+    		// printf("\tIteration %lu cost: %e  linkcost: %e  bw: %e (%f%%)\n",
+      //               iteration, icost, cost, bw, 100.0 * bw / requested_bw);
 
             if (pcnt >= desiredPcnt)
                 break;
@@ -72,10 +72,10 @@ namespace bwpathfinder {
         for (PathPtr path: this->network->paths) {
             requested_bw += path->requested_bw;
         }
-        printf("Pathfinder solveConverge:\n");
-        printf("\tNodes: %lu\n\tLinks: %lu\n\tPaths: %lu\n\tHopCost:%e\n\tThresh: %e\n\tBandwidth: %e\n",
-                network->nodes.size(), network->links.size(), network->paths.size(),
-                hopCost, improvementThreshold, requested_bw);
+        // printf("Pathfinder solveConverge:\n");
+        // printf("\tNodes: %lu\n\tLinks: %lu\n\tPaths: %lu\n\tHopCost:%e\n\tThresh: %e\n\tBandwidth: %e\n",
+        //         network->nodes.size(), network->links.size(), network->paths.size(),
+        //         hopCost, improvementThreshold, requested_bw);
         while (iteration < maxIter) {
             float icost = iterate();
             cost = solutionCost();
@@ -93,8 +93,8 @@ namespace bwpathfinder {
                 max = std::max(max, c);
             }
 
-            printf("\tIteration %lu cost: %e  linkcost: %e  bw: %e (%f%%)\n",
-                    iteration, icost, cost, bw, 100.0 * bw / requested_bw);
+            // printf("\tIteration %lu cost: %e  linkcost: %e  bw: %e (%f%%)\n",
+            //         iteration, icost, cost, bw, 100.0 * bw / requested_bw);
 
             float diff = max - min;
             if (costs.size() >= 3 && diff < improvementThreshold) {
