@@ -93,11 +93,14 @@ namespace bwpathfinder {
             SimulatedNode* nodeB;
 
         public:
+            uint64_t flitsDelivered;
+
             SimulatedLink(NetworkSimulation* sim, LinkPtr link) :
                 simfw::InputPort<Time, Flit*>(sim),
                 link(link),
                 bufferedItems(0),
-                roundRobinIndex(0) {
+                roundRobinIndex(0),
+                flitsDelivered(0) {
                 float max_iff = link->bandwidth * link->latency / sim->flit_size_in_bytes;
                 this->max_in_flight = round(max_iff);
                 if (this->max_in_flight < 1) {
@@ -137,6 +140,7 @@ namespace bwpathfinder {
 
             virtual void recieve(Time time, Flit* f) {
                 inFlight.erase(f);
+                this->flitsDelivered += 1;
                 if (bufferedItems > 0) {
                     // Find next to send according to RR policy
                     auto iter = buffers.begin();
@@ -212,6 +216,19 @@ namespace bwpathfinder {
     public: 
         NetworkSimulation(NetworkPtr network) {
             this->network = network;
+        }
+
+        void clear() {
+            for (auto p : injectionPorts) {
+                delete p.second;
+            }
+            injectionPorts.clear();
+            simulatedNodes.clear();
+            simulatedLinks.clear();
+        }
+
+        void init() {
+            clear();
             this->flit_size_in_bytes = network->flit_size_in_bytes;
 
             slowestClock = 0.0;
@@ -278,9 +295,26 @@ namespace bwpathfinder {
         }
 
         void simulate() {
+            init();
+
             // Simulate N of the slowest packet injections
-            this->goUntil(longestPeriod.seconds() * 100.0 +
-                          10 * longestPath * slowestClock.seconds());
+            float simTime = longestPeriod.seconds() * 100.0 +
+                          10 * longestPath * slowestClock.seconds();
+            this->goUntil(simTime);
+            this->network->simulatedTime = simTime;
+
+            for(auto node : network->nodes) {
+                auto snode = simulatedNodes[node];
+                uint64_t flitsDelivered = 0;
+                for (auto p : snode->flits_seen) {
+                    flitsDelivered += p.second;
+                }
+                node->simulatedFlitsDelivered = flitsDelivered;
+            }
+
+            for(auto link: network->links) {
+                link->simulatedFlitsDelivered = simulatedLinks[link]->flitsDelivered;
+            }
         }
 
         void setDeliveredBandwidths() {

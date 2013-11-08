@@ -37,6 +37,7 @@ namespace bwpathfinder {
         float bandwidth;
         float latency;
         int   maximum_paths;
+        uint64_t simulatedFlitsDelivered;
 
         Link(NodePtr a, NodePtr b, float bandwidth, float latency, int maximum_paths=-1) : 
             a(a),
@@ -95,6 +96,7 @@ namespace bwpathfinder {
         size_t id;
         float latency;
         std::string label;
+        uint64_t simulatedFlitsDelivered;
 
         Node(float latency) : 
             latency(latency) { 
@@ -200,6 +202,7 @@ namespace bwpathfinder {
 
     public:
         unsigned long flit_size_in_bytes;
+        float simulatedTime;
 
         Network(unsigned long flit_size_in_bytes):
             flit_size_in_bytes(flit_size_in_bytes) {
@@ -216,7 +219,7 @@ namespace bwpathfinder {
             paths.clear();
         }
 
-        void addLink(NodePtr src, NodePtr dst, float bw, float latency = -1) {
+        LinkPtr addLink(NodePtr src, NodePtr dst, float bw, float latency = -1) {
             // printf("[%p] addLink %s %s %e %e\n", this, src->label.c_str(),
                 // dst->label.c_str(), bw, latency);
             nodes.insert(src);
@@ -226,6 +229,7 @@ namespace bwpathfinder {
             links.insert(link);
             linkIndex[src.get()].insert(link.get());
             linkIndex[dst.get()].insert(link.get());
+            return link;
         }
 
         void addPath(PathPtr path) {
