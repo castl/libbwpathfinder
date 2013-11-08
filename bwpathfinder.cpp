@@ -50,7 +50,7 @@ namespace bwpathfinder {
     	// 		network->nodes.size(), network->links.size(), network->paths.size(),
     	// 		hopCost, desiredPcnt, requested_bw);
     	while (iteration < maxIter) {
-    		float icost = iterate();
+    		iterate();
     		cost = solutionCost();
             float bw = deliveredBw();
             float pcnt = 100 * bw / requested_bw;
@@ -77,9 +77,9 @@ namespace bwpathfinder {
         //         network->nodes.size(), network->links.size(), network->paths.size(),
         //         hopCost, improvementThreshold, requested_bw);
         while (iteration < maxIter) {
-            float icost = iterate();
+            iterate();
             cost = solutionCost();
-            float bw = deliveredBw();
+            // float bw = deliveredBw();
             costs.push_back(cost);
             while (costs.size() > 3) {
                 costs.pop_front();
