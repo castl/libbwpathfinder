@@ -63,7 +63,14 @@ namespace bwpathfinder {
             float bwAll = bw + this->bwRequested;
             if (bwAll < this->bandwidth)
                 return bw;
-            return (bw / bwAll) * this->bandwidth;
+            float bwFrac = (bw / bwAll);
+            if (this->maximum_paths <= 0)
+                return bwFrac * this->bandwidth;
+
+            float wireFrac = bwFrac * (float)this->maximum_paths;
+            size_t num_wires = round(wireFrac);
+            float bwPerWire = this->bandwidth / this->maximum_paths;
+            return num_wires * bwPerWire;
             // return std::min(bw, this->bandwidth / (paths.size() + 1));
         }
 
@@ -71,7 +78,14 @@ namespace bwpathfinder {
             float bwAll = this->bwRequested;
             if (bwAll < this->bandwidth)
                 return bw;
-            return (bw / bwAll) * this->bandwidth;
+            float bwFrac = (bw / bwAll);
+            if (this->maximum_paths <= 0)
+                return bwFrac * this->bandwidth;
+
+            float wireFrac = bwFrac * (float)this->maximum_paths;
+            size_t num_wires = round(wireFrac);
+            float bwPerWire = this->bandwidth / this->maximum_paths;
+            return num_wires * bwPerWire;
             // return std::min(bw, this->bandwidth / paths.size());
         }
 
@@ -277,6 +291,7 @@ namespace bwpathfinder {
         float iterate();
         float solutionCost();
         float deliveredBw();
+        size_t numOverShared();
 
     public:
         float hopCost;

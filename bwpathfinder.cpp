@@ -59,7 +59,7 @@ namespace bwpathfinder {
     		// printf("\tIteration %lu cost: %e  linkcost: %e  bw: %e (%f%%)\n",
       //               iteration, icost, cost, bw, 100.0 * bw / requested_bw);
 
-            if (pcnt >= desiredPcnt)
+            if (pcnt >= desiredPcnt && numOverShared() == 0)
                 break;
     	}
 
@@ -256,6 +256,15 @@ namespace bwpathfinder {
     		cost += link->solutionPartialCost();
     	}
     	return cost;
+    }
+
+    size_t Pathfinder::numOverShared() {
+        size_t num = 0;
+        for (LinkPtr link : this->network->links) {
+            if (link->maximum_paths > 0 && link->paths.size() > (size_t)link->maximum_paths)
+                num += 1;
+        }
+        return num;
     }
 
     float Pathfinder::deliveredBw() {
