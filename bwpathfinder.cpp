@@ -28,6 +28,54 @@ namespace bwpathfinder {
 
         for (PathPtr path : this->paths) {
         	path->assign(path->path, path->delivered_bw);
+            path->num_wires = -1;
+        }
+    }
+
+    void Network::calcCircuitSwitchedBandwidth() {
+        // Zero all state variables
+        for (LinkPtr link : this->links) {
+            link->paths.clear();
+            link->bwRequested = 0.0;
+        }
+
+        for (PathPtr path : this->paths) {
+            path->assign(path->path, path->delivered_bw);
+        }
+
+        for (LinkPtr link : this->links) {
+            link->allocateWires();
+        }
+    }
+
+    void Link::allocateWires() {
+        if (this->maximum_paths <= 0)
+            return;
+        const size_t num_wires = this->maximum_paths;
+        size_t wires_allocated = 0;
+        float bwPerWire = this->bandwidth / this->maximum_paths;
+
+        typedef std::pair<double, PathPtr> dppair;
+        std::map<PathPtr, int> allocation;
+        std::priority_queue<dppair, std::vector<dppair>, compare_first> paths;
+        for (auto path : this->paths) {
+            paths.push(std::make_pair(path->requested_bw, path));
+            allocation[path] = 0;
+        }
+
+        while (paths.size() > 0 && wires_allocated <num_wires) {
+            dppair p = paths.top();
+            paths.pop();
+            allocation[p.second] += 1;
+            p.first -= bwPerWire;
+            if (p.first > 0) {
+                paths.push(p);
+            }
+        }
+
+        for (auto pipair : allocation) {
+            assert(pipair.second > 0);
+            pipair.first->assign_wire(shared_from_this(), pipair.second);
         }
     }
 

@@ -4,6 +4,7 @@
 #include <vector>
 #include <set>
 #include <map>
+#include <queue>
 #include <boost/shared_ptr.hpp>
 #include <boost/enable_shared_from_this.hpp>
 
@@ -32,6 +33,14 @@ namespace bwpathfinder {
         }
     }; 
 
+    struct compare_first
+    {
+        template< typename T >
+        bool operator()( T p1, T p2 ) const {
+            return p1.first > p2.first;
+        }
+    };
+
     struct Link : public boost::enable_shared_from_this<Link> {
         NodePtr a, b;
         float bandwidth;
@@ -57,13 +66,15 @@ namespace bwpathfinder {
             return std::vector<PathPtr>(paths.begin(), paths.end());
         }
 
+        void allocateWires();
+
         float costToUse(float hopCost, float bw) const;
 
         float bwShareW(float bw) const {
             float bwAll = bw + this->bwRequested;
-            if (bwAll < this->bandwidth)
-                return bw;
             float bwFrac = (bw / bwAll);
+            if (bwAll < this->bandwidth)
+                bwFrac = (bw / this->bandwidth);
             if (this->maximum_paths <= 0)
                 return bwFrac * this->bandwidth;
 
@@ -76,9 +87,9 @@ namespace bwpathfinder {
 
         float bwShare(float bw) const {
             float bwAll = this->bwRequested;
-            if (bwAll < this->bandwidth)
-                return bw;
             float bwFrac = (bw / bwAll);
+            if (bwAll < this->bandwidth)
+                bwFrac = (bw / this->bandwidth);
             if (this->maximum_paths <= 0)
                 return bwFrac * this->bandwidth;
 
@@ -124,10 +135,17 @@ namespace bwpathfinder {
         float requested_bw;
         float delivered_bw;
         std::vector<LinkPtr> path;
+        int num_wires;
 
         Path() :
             requested_bw(-1),
             delivered_bw(-1) {
+        }
+
+        void assign_wire(LinkPtr link, int num_wires) {
+            if (this->num_wires == -1 || num_wires < this->num_wires) {
+                this->num_wires = num_wires;
+            }
         }
 
         void assign(std::vector<LinkPtr> newPath, float bw) {
@@ -283,6 +301,7 @@ namespace bwpathfinder {
         }
 
         void simulateDeliveredBandwidth();
+        void calcCircuitSwitchedBandwidth();
     };
 
     class Pathfinder {
