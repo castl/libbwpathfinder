@@ -188,17 +188,29 @@ namespace bwpathfinder {
         {
             PathPtr path;
             SimulatedLink* link;
+            uint64_t flitsInjected;
+            SimulatedNode* dst;
         public:
             InjectionPort(NetworkSimulation* sim, Time period,
-                          PathPtr path, SimulatedLink* link) :
+                          PathPtr path, SimulatedLink* link,
+                          SimulatedNode* dst) :
                 simfw::Timer<Time>(sim, period),
                 path(path),
-                link(link) {
+                link(link),
+                flitsInjected(0),
+                dst(dst) {
             }
 
         protected:
             virtual bool ding(uint64_t i) {
+                uint64_t flitsRecieved = dst->flits_seen[path];
+                uint64_t flitsInFlight = flitsInjected - flitsRecieved;
+                if (flitsInFlight > 2 * path->path.size()) {
+                    // Too many flits in flight. Throttle
+                    return true;
+                }
                 link->inject(simulation->now(), new Flit(path));
+                flitsInjected += 1;
                 // printf("Injecting flit %lf %lu\n", simulation->now().seconds(), i);
                 return true;
             }
@@ -257,6 +269,7 @@ namespace bwpathfinder {
             Time largestPeriod = 0.0;
             this->longestPath = 0;
             for (auto path: network->paths){
+                // Time period = 1.0 / (path->requested_bw / flit_size_in_bytes);
                 Time period = 1.0 / (path->requested_bw / flit_size_in_bytes);
                 if (largestPeriod < period)
                     largestPeriod = period;
@@ -267,7 +280,8 @@ namespace bwpathfinder {
                 auto flink = simulatedLinks.find(vlink);
                 assert(flink != simulatedLinks.end());
                 SimulatedLink* slink = flink->second;
-                injectionPorts.insert(std::make_pair(path, new InjectionPort(this, period, path, slink)));
+                SimulatedNode* dst = simulatedNodes[path->dst];
+                injectionPorts.insert(std::make_pair(path, new InjectionPort(this, period, path, slink, dst)));
             }
 
             this->longestPeriod = largestPeriod;
@@ -298,8 +312,8 @@ namespace bwpathfinder {
             init();
 
             // Simulate N of the slowest packet injections
-            float simTime = longestPeriod.seconds() * 100.0 +
-                          10 * longestPath * slowestClock.seconds();
+            float simTime = longestPeriod.seconds() * 500.0 +
+                          50 * longestPath * slowestClock.seconds();
             this->goUntil(simTime);
             this->network->simulatedTime = simTime;
 
