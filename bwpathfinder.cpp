@@ -59,11 +59,17 @@ namespace bwpathfinder {
         std::map<PathPtr, int> allocation;
         std::priority_queue<dppair, std::vector<dppair>, compare_first> paths;
         for (auto path : this->paths) {
-            paths.push(std::make_pair(path->requested_bw, path));
-            allocation[path] = 0;
+            allocation[path] = 1;
+            wires_allocated += 1;
+
+            auto p = std::make_pair(path->requested_bw - bwPerWire, path);
+            if (p.first > 0)
+                paths.push(p);
         }
 
-        while (paths.size() > 0 && wires_allocated <num_wires) {
+        assert(wires_allocated <= num_wires);
+
+        while (paths.size() > 0 && wires_allocated < num_wires) {
             dppair p = paths.top();
             paths.pop();
             allocation[p.second] += 1;
