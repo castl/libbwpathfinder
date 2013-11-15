@@ -11,7 +11,7 @@ namespace bwpathfinder {
     size_t Node::id_counter = 0;
 
     void Network::simulateDeliveredBandwidth() {
-        NetworkSimulation sim(shared_from_this());
+        NetworkSimulation sim(this);
         simfw::Timer<Time> checkup(&sim, 1e-8, [] (uint64_t i) {
             check_pyerror();
             return true;

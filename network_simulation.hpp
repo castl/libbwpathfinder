@@ -13,27 +13,27 @@ namespace bwpathfinder {
     class NetworkSimulation : public simfw::Simulation<Time>
     {
         struct Flit {
-            PathPtr owner;
+            Path* owner;
             size_t hops;
-            NodePtr lastNode;
+            Node* lastNode;
 
-            Flit(PathPtr path) :
+            Flit(Path* path) :
                 owner(path),
                 hops(0),
-                lastNode(path->src) {
+                lastNode(path->src.get()) {
             }
 
-            NodePtr nextNode() {
+            Node* nextNode() {
                 if (arrived())
-                    return owner->dst;
+                    return owner->dst.get();
                 assert(hops < owner->path.size());
-                LinkPtr currLink = owner->path[hops];
+                Link* currLink = owner->path[hops].get();
                 // printf("nextNode src %p dst %p curr (%p %p)\n",
                         // owner->src.get(), owner->dst.get(), currLink->a.get(), currLink->b.get());
-                if (currLink->a == lastNode)
-                    return currLink->b;
-                else if (currLink->b == lastNode)
-                    return currLink->a;
+                if (currLink->a.get() == lastNode)
+                    return currLink->b.get();
+                else if (currLink->b.get() == lastNode)
+                    return currLink->a.get();
                 else
                     assert(false && "Invalid lastNode, currLink association");
             }
@@ -44,7 +44,7 @@ namespace bwpathfinder {
             }
 
             bool arrived() {
-                return lastNode == owner->dst;
+                return lastNode == owner->dst.get();
             }
         };
 
@@ -55,15 +55,15 @@ namespace bwpathfinder {
             std::map<uint64_t, SimulatedLink*> outPorts;
 
         public:
-            NodePtr node;
-            std::map<PathPtr, uint64_t> flits_seen;
+            Node* node;
+            std::map<Path*, uint64_t> flits_seen;
 
-            SimulatedNode(NetworkSimulation* sim, NodePtr node) :
+            SimulatedNode(NetworkSimulation* sim, Node* node) :
                 simfw::InputPort<Time, Flit*>(sim),
                 node(node) {
             }
 
-            void notifyLink(NodePtr toNode, SimulatedLink* link) {
+            void notifyLink(Node* toNode, SimulatedLink* link) {
                 outPorts[toNode->id] = link;
             }
 
@@ -74,7 +74,7 @@ namespace bwpathfinder {
                     // We've arrived!
                     delete f;
                 } else {
-                    NodePtr next = f->nextNode();
+                    Node* next = f->nextNode();
                     outPorts[next->id]->inject(time, f);
                 }
             }
@@ -82,7 +82,7 @@ namespace bwpathfinder {
 
         class SimulatedLink : public simfw::InputPort<Time, Flit*>
         {
-            LinkPtr link;
+            Link* link;
             size_t max_in_flight;
             Time latency;
             size_t bufferedItems;
@@ -95,7 +95,7 @@ namespace bwpathfinder {
         public:
             uint64_t flitsDelivered;
 
-            SimulatedLink(NetworkSimulation* sim, LinkPtr link) :
+            SimulatedLink(NetworkSimulation* sim, Link* link) :
                 simfw::InputPort<Time, Flit*>(sim),
                 link(link),
                 bufferedItems(0),
@@ -110,8 +110,8 @@ namespace bwpathfinder {
                     assert(false);
                 }
                 this->latency = link->latency;
-                this->nodeA = sim->getNode(link->a);
-                this->nodeB = sim->getNode(link->b);
+                this->nodeA = sim->getNode(link->a.get());
+                this->nodeB = sim->getNode(link->b.get());
                 assert(nodeA != NULL);
                 assert(nodeB != NULL);
             }
@@ -171,7 +171,7 @@ namespace bwpathfinder {
                     }
                 }
 
-                NodePtr next = f->nextNode();
+                Node* next = f->nextNode();
                 // printf("next: %p   a %p b %p\n",
                     // next.get(), nodeA->node.get(), nodeB->node.get());
                 // printf("link : %p %p\n", link->a.get(), link->b.get());
@@ -186,13 +186,13 @@ namespace bwpathfinder {
 
         class InjectionPort : public simfw::Timer<Time>
         {
-            PathPtr path;
+            Path* path;
             SimulatedLink* link;
             uint64_t flitsInjected;
             SimulatedNode* dst;
         public:
             InjectionPort(NetworkSimulation* sim, Time period,
-                          PathPtr path, SimulatedLink* link,
+                          Path* path, SimulatedLink* link,
                           SimulatedNode* dst) :
                 simfw::Timer<Time>(sim, period),
                 path(path),
@@ -216,17 +216,17 @@ namespace bwpathfinder {
             }
         };
 
-        NetworkPtr network;
+        Network* network;
         size_t flit_size_in_bytes;
         Time longestPeriod;
         Time slowestClock;
         size_t longestPath;
-        std::map<PathPtr, InjectionPort*, smart_ptr_less_than> injectionPorts;
-        std::map<NodePtr, SimulatedNode*, smart_ptr_less_than> simulatedNodes;
-        std::map<LinkPtr, SimulatedLink*, smart_ptr_less_than> simulatedLinks;
+        std::map<Path*, InjectionPort*> injectionPorts;
+        std::map<Node*, SimulatedNode*> simulatedNodes;
+        std::map<Link*, SimulatedLink*> simulatedLinks;
 
     public: 
-        NetworkSimulation(NetworkPtr network) {
+        NetworkSimulation(Network* network) {
             this->network = network;
         }
 
@@ -245,7 +245,7 @@ namespace bwpathfinder {
 
             slowestClock = 0.0;
             for(auto node : network->nodes) {
-                simulatedNodes.insert(std::make_pair(node, new SimulatedNode(this, node)));
+                simulatedNodes.insert(std::make_pair(node.get(), new SimulatedNode(this, node.get())));
                 if (slowestClock < node->latency)
                     slowestClock = node->latency;
             }
@@ -253,17 +253,17 @@ namespace bwpathfinder {
             for(auto link: network->links) {
                 if (slowestClock < link->latency)
                     slowestClock = link->latency;
-                simulatedLinks.insert(std::make_pair(link, new SimulatedLink(this, link)));
-                SimulatedLink* slink = simulatedLinks.find(link)->second;
+                simulatedLinks.insert(std::make_pair(link.get(), new SimulatedLink(this, link.get())));
+                SimulatedLink* slink = simulatedLinks.find(link.get())->second;
                 SimulatedNode* n;
 
-                n = getNode(link->a);
+                n = getNode(link->a.get());
                 assert(n != NULL);
-                n->notifyLink(link->b, slink);
+                n->notifyLink(link->b.get(), slink);
 
-                n = getNode(link->b);
+                n = getNode(link->b.get());
                 assert(n != NULL);
-                n->notifyLink(link->a, slink);
+                n->notifyLink(link->a.get(), slink);
             }
 
             Time largestPeriod = 0.0;
@@ -275,13 +275,14 @@ namespace bwpathfinder {
                     largestPeriod = period;
                 if (path->path.size() > longestPath)
                     longestPath = path->path.size();
-                LinkPtr vlink = network->findLink(path->src, NodePtr());
-                assert(vlink != LinkPtr());
+                Link* vlink = network->findLink(path->src, NodePtr()).get();
+                assert(vlink != NULL);
                 auto flink = simulatedLinks.find(vlink);
                 assert(flink != simulatedLinks.end());
                 SimulatedLink* slink = flink->second;
-                SimulatedNode* dst = simulatedNodes[path->dst];
-                injectionPorts.insert(std::make_pair(path, new InjectionPort(this, period, path, slink, dst)));
+                SimulatedNode* dst = simulatedNodes[path->dst.get()];
+                injectionPorts.insert(std::make_pair(path.get(),
+                    new InjectionPort(this, period, path.get(), slink, dst)));
             }
 
             this->longestPeriod = largestPeriod;
@@ -301,7 +302,7 @@ namespace bwpathfinder {
             }
         }
 
-        SimulatedNode* getNode(NodePtr n) {
+        SimulatedNode* getNode(Node* n) {
             auto fnode = simulatedNodes.find(n);
             if (fnode == simulatedNodes.end())
                 return NULL;
@@ -318,7 +319,7 @@ namespace bwpathfinder {
             this->network->simulatedTime = simTime;
 
             for(auto node : network->nodes) {
-                auto snode = simulatedNodes[node];
+                auto snode = simulatedNodes[node.get()];
                 uint64_t flitsDelivered = 0;
                 for (auto p : snode->flits_seen) {
                     flitsDelivered += p.second;
@@ -327,16 +328,16 @@ namespace bwpathfinder {
             }
 
             for(auto link: network->links) {
-                link->simulatedFlitsDelivered = simulatedLinks[link]->flitsDelivered;
+                link->simulatedFlitsDelivered = simulatedLinks[link.get()]->flitsDelivered;
             }
         }
 
         void setDeliveredBandwidths() {
             float runtime = this->now().seconds();
             for (auto path: this->network->paths) {
-                SimulatedNode* dst = this->getNode(path->dst);
+                SimulatedNode* dst = this->getNode(path->dst.get());
                 assert(dst != NULL);
-                uint64_t recvd_flits = dst->flits_seen[path];
+                uint64_t recvd_flits = dst->flits_seen[path.get()];
                 uint64_t bytes_recvd = recvd_flits * this->flit_size_in_bytes;
                 path->delivered_bw = ((float)bytes_recvd) / runtime;
             }
