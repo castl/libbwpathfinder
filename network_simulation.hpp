@@ -205,7 +205,7 @@ namespace bwpathfinder {
             virtual bool ding(uint64_t i) {
                 uint64_t flitsRecieved = dst->flits_seen[path];
                 uint64_t flitsInFlight = flitsInjected - flitsRecieved;
-                if (flitsInFlight > 2 * path->path.size()) {
+                if (flitsInFlight > 1.1 * path->path.size()) {
                     // Too many flits in flight. Throttle
                     return true;
                 }
