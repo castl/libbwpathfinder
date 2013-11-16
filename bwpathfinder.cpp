@@ -40,6 +40,7 @@ namespace bwpathfinder {
         }
 
         for (PathPtr path : this->paths) {
+            path->num_wires = -1;
             path->assign(path->path, path->delivered_bw);
         }
 

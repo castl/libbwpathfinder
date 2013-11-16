@@ -313,8 +313,8 @@ namespace bwpathfinder {
             init();
 
             // Simulate N of the slowest packet injections
-            float simTime = longestPeriod.seconds() * 500.0 +
-                          50 * longestPath * slowestClock.seconds();
+            float simTime = longestPeriod.seconds() * 200.0 +
+                          20 * longestPath * slowestClock.seconds();
             this->goUntil(simTime);
             this->network->simulatedTime = simTime;
 
