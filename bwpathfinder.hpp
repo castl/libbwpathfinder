@@ -66,7 +66,7 @@ namespace bwpathfinder {
             return std::vector<PathPtr>(paths.begin(), paths.end());
         }
 
-        void allocateWires();
+        void allocateWires(float frequency);
 
         float costToUse(float hopCost, float bw) const;
 
@@ -301,7 +301,7 @@ namespace bwpathfinder {
         }
 
         void simulateDeliveredBandwidth();
-        void calcCircuitSwitchedBandwidth();
+        void calcCircuitSwitchedBandwidth(float frequency);
     };
 
     class Pathfinder {

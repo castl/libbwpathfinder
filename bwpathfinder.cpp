@@ -32,7 +32,7 @@ namespace bwpathfinder {
         }
     }
 
-    void Network::calcCircuitSwitchedBandwidth() {
+    void Network::calcCircuitSwitchedBandwidth(float frequency) {
         // Zero all state variables
         for (LinkPtr link : this->links) {
             link->paths.clear();
@@ -45,27 +45,31 @@ namespace bwpathfinder {
         }
 
         for (LinkPtr link : this->links) {
-            link->allocateWires();
+            link->allocateWires(frequency);
         }
     }
 
-    void Link::allocateWires() {
+    void Link::allocateWires(float frequency) {
         if (this->maximum_paths <= 0)
             return;
         const size_t num_wires = this->maximum_paths;
         size_t wires_allocated = 0;
         float bwPerWire = this->bandwidth / this->maximum_paths;
+        const int num_real_wires = round(this->bandwidth * 8 / frequency);
+        assert(num_real_wires % this->maximum_paths == 0);
+        const int real_wires_per = num_real_wires / this->maximum_paths;
 
         typedef std::pair<double, PathPtr> dppair;
         std::map<PathPtr, int> allocation;
         std::priority_queue<dppair, std::vector<dppair>, compare_first> paths;
         for (auto path : this->paths) {
-            allocation[path] = 1;
-            wires_allocated += 1;
-
-            auto p = std::make_pair(path->requested_bw - bwPerWire, path);
-            if (p.first > 0)
-                paths.push(p);
+            if (wires_allocated < num_wires) {
+                wires_allocated += 1;
+                allocation[path] = 1;
+                auto p = std::make_pair(path->requested_bw - bwPerWire, path);
+                if (p.first > 0)
+                    paths.push(p);
+            }
         }
 
         assert(wires_allocated <= num_wires);
@@ -75,6 +79,7 @@ namespace bwpathfinder {
             paths.pop();
             allocation[p.second] += 1;
             p.first -= bwPerWire;
+            wires_allocated += 1;
             if (p.first > 0) {
                 paths.push(p);
             }
@@ -82,7 +87,7 @@ namespace bwpathfinder {
 
         for (auto pipair : allocation) {
             assert(pipair.second > 0);
-            pipair.first->assign_wire(shared_from_this(), pipair.second);
+            pipair.first->assign_wire(shared_from_this(), real_wires_per * pipair.second);
         }
     }
 
