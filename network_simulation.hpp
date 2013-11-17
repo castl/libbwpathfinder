@@ -315,6 +315,10 @@ namespace bwpathfinder {
             // Simulate N of the slowest packet injections
             float simTime = longestPeriod.seconds() * 200.0 +
                           20 * longestPath * slowestClock.seconds();
+            if (simTime > 1e-5) {
+                printf("WARNING: Trying to simulate more than 10us!\n");
+                fflush(stdout);
+            }
             this->goUntil(simTime);
             this->network->simulatedTime = simTime;
 
