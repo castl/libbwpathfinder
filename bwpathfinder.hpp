@@ -119,11 +119,13 @@ namespace bwpathfinder {
     struct Node {
         static size_t id_counter;
         size_t id;
+        size_t ports;
         float latency;
         std::string label;
         uint64_t simulatedFlitsDelivered;
 
         Node(float latency) : 
+            ports(0),
             latency(latency) { 
             this->id = id_counter++;
         }
