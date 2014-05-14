@@ -63,6 +63,8 @@ namespace bwpathfinder {
                 node(node) {
             }
 
+            virtual ~SimulatedNode() { }
+
             void notifyLink(Node* toNode, SimulatedLink* link) {
                 outPorts[toNode->id] = link;
             }
@@ -116,7 +118,7 @@ namespace bwpathfinder {
                 assert(nodeB != NULL);
             }
 
-            ~SimulatedLink() {
+            virtual ~SimulatedLink() {
                 for (auto flit : inFlight) {
                     delete flit;
                 }
@@ -200,6 +202,8 @@ namespace bwpathfinder {
                 flitsInjected(0),
                 dst(dst) {
             }
+
+            virtual ~InjectionPort() { }
 
         protected:
             virtual bool ding(uint64_t i) {
